@@ -1,10 +1,5 @@
-import { createHash } from 'crypto'
-import { timeDiff } from './util.js'
+import { SHA256, timeDiff } from './util.js'
 
-
-const SHA256 = (text) => {
-    return createHash('sha256').update(text).digest('hex')
-}
 
 class Block {
     constructor(index, timestamp, data, previousHash='') {
@@ -12,18 +7,28 @@ class Block {
         this.timestamp = timestamp
         this.data = data
         this.previousHash = previousHash
+        this.nonce = 0
 
         this.hash = this.calculateHash()
     }
 
     calculateHash() {
-        return SHA256(this.index + this.previousHash + this.timestamp + JSON.stringify(this.data)).toString()
+        return SHA256(this.index + this.previousHash + this.timestamp + JSON.stringify(this.data) + this.nonce).toString()
+    }
+
+    mineBlock(difficulty) {
+        const start = new Date()
+        while(this.hash.substr(0, difficulty) !== "0".repeat(difficulty)) {
+            this.nonce++
+            this.hash = this.calculateHash()
+        }
     }
 }
 
 class Blockchain {
     constructor() {
         this.chain = [this.createGenesisBlock()]
+        this.difficulty = 4
     }
 
     createGenesisBlock() {
@@ -36,7 +41,7 @@ class Blockchain {
 
     addBlock(newBlock) {
         newBlock.previousHash = this.getLatestBlock().hash
-        newBlock.hash = newBlock.calculateHash()
+        newBlock.mineBlock(this.difficulty, true)
 
         this.chain.push(newBlock)
     }
@@ -58,10 +63,20 @@ class Blockchain {
 }
 
 const buttCoin = new Blockchain()
-buttCoin.addBlock(new Block(1, new Date(), { amount: 100, from: "0x111", to: "0x222" }))
-buttCoin.addBlock(new Block(2, new Date(), { amount: 250, from: "0x111", to: "0x222" }))
 
-console.log(JSON.stringify(buttCoin, null, 4))
+console.log("Mining block 1...")
+let start = new Date()
+buttCoin.addBlock(new Block(1, new Date(), { amount: 100, from: "0x111", to: "0x222" }))
+console.log(`Block mined: ${buttCoin.chain[1].hash}`)
+console.log(`Took ${timeDiff(start)}s`)
+
+console.log("Mining block 2...")
+start = new Date()
+buttCoin.addBlock(new Block(2, new Date(), { amount: 250, from: "0x111", to: "0x222" }))
+console.log(`Block mined: ${buttCoin.chain[2].hash}`)
+console.log(`Took ${timeDiff(start)}s`)
+
+// console.log(JSON.stringify(buttCoin, null, 4))
 console.log("Validating chain...")
 console.log(buttCoin.isChainValid())
 
