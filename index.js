@@ -1,11 +1,18 @@
 import { SHA256, timeDiff } from './util.js'
 
 
+class Transaction {
+    constructor(fromAddress, toAddress, amount) {
+        this.fromAddress = fromAddress
+        this.toAddress = toAddress
+        this.amount = amount
+    }
+}
+
 class Block {
-    constructor(index, timestamp, data, previousHash='') {
-        this.index = index
+    constructor(timestamp, transactions, previousHash='') {
         this.timestamp = timestamp
-        this.data = data
+        this.transactions = transactions
         this.previousHash = previousHash
         this.nonce = 0
 
@@ -13,7 +20,7 @@ class Block {
     }
 
     calculateHash() {
-        return SHA256(this.index + this.previousHash + this.timestamp + JSON.stringify(this.data) + this.nonce).toString()
+        return SHA256(this.previousHash + this.timestamp + JSON.stringify(this.transactions) + this.nonce).toString()
     }
 
     mineBlock(difficulty) {
@@ -28,22 +35,49 @@ class Block {
 class Blockchain {
     constructor() {
         this.chain = [this.createGenesisBlock()]
-        this.difficulty = 4
+        this.difficulty = 3
+        this.pendingTransactions = []
+        this.miningReward = 10
     }
 
     createGenesisBlock() {
-        return new Block(0, new Date("01/01/2021"), "Genesis block", '0')
+        return new Block(new Date("01/01/2021"), "Genesis block", '0')
     }
 
     getLatestBlock() {
         return this.chain[this.chain.length - 1]
     }
 
-    addBlock(newBlock) {
-        newBlock.previousHash = this.getLatestBlock().hash
-        newBlock.mineBlock(this.difficulty, true)
+    minePendingTransactions(miningRewardAddress) {
+        const block = new Block(Date.now(), this.pendingTransactions)
+        block.mineBlock(this.difficulty)
+        block.previousHash = this.getLatestBlock().hash
 
-        this.chain.push(newBlock)
+        this.chain.push(block)
+
+        this.pendingTransactions = [
+            new Transaction(null, miningRewardAddress, this.miningReward)
+        ]
+    }
+
+    createTransaction(transaction) {
+        this.pendingTransactions.push(transaction)
+    }
+
+    getBalanceOfAddress(address) {
+        let balance = 0
+
+        for (const block of this.chain) {
+            for (const trx of block.transactions) {
+                if (trx.fromAddress === address)
+                    balance -= trx.amount
+
+                if (trx.toAddress === address)
+                    balance += trx.amount
+            }
+        }
+
+        return balance
     }
 
     isChainValid() {
@@ -64,24 +98,11 @@ class Blockchain {
 
 const buttCoin = new Blockchain()
 
-console.log("Mining block 1...")
-let start = new Date()
-buttCoin.addBlock(new Block(1, new Date(), { amount: 100, from: "0x111", to: "0x222" }))
-console.log(`Block mined: ${buttCoin.chain[1].hash}`)
-console.log(`Took ${timeDiff(start)}s`)
+buttCoin.createTransaction(new Transaction('from1', 'to1', 250))
+buttCoin.createTransaction(new Transaction('to1', 'from1', 25))
 
-console.log("Mining block 2...")
-start = new Date()
-buttCoin.addBlock(new Block(2, new Date(), { amount: 250, from: "0x111", to: "0x222" }))
-console.log(`Block mined: ${buttCoin.chain[2].hash}`)
-console.log(`Took ${timeDiff(start)}s`)
+console.log('Starting mining operation...')
+buttCoin.minePendingTransactions('buttServer')
 
-// console.log(JSON.stringify(buttCoin, null, 4))
-console.log("Validating chain...")
-console.log(buttCoin.isChainValid())
-
-// tamper data (wont work for last)
-buttCoin.chain[1].data = { amount: 1000, from: "0x111", to: "0x222" }
-buttCoin.chain[1].hash = buttCoin.chain[1].calculateHash()
-console.log("Validating chain...")
-console.log(buttCoin.isChainValid())
+console.log(`Balance of buttServer: ${buttCoin.getBalanceOfAddress('buttServer')}`)
+console.log(`Balance of to1: ${buttCoin.getBalanceOfAddress('to1')}`)
