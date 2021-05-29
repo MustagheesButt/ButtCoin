@@ -20,5 +20,8 @@
     "presets": [
       "@babel/preset-env"
     ]
+  },
+  "dependencies": {
+    "elliptic": "^6.5.4"
   }
 }
